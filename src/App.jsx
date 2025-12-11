@@ -6,6 +6,8 @@ import Login from './pages/Login/Login';
 import Dashboard from './pages/Dashboard/Dashboard';
 import About from './pages/About/About';
 import EditAbout from './pages/About/EditAbout';
+import News from './pages/News/News';
+import EditNews from './pages/News/EditNews';
 import './index.css';
 
 function App() {
@@ -35,6 +37,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <EditAbout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/news"
+            element={
+              <ProtectedRoute>
+                <News />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/news/edit/:id"
+            element={
+              <ProtectedRoute>
+                <EditNews />
               </ProtectedRoute>
             }
           />
