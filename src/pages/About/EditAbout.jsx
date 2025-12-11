@@ -1,0 +1,372 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+import DashboardLayout from '../../components/Layout/DashboardLayout';
+import { ABOUT_DATA } from '../../data/aboutData';
+import './EditAbout.css';
+
+const ORDERED_CATEGORIES = ['style', 'biography'];
+
+const EditAbout = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const isNewItem = id === 'new';
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [categoryInput, setCategoryInput] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [formData, setFormData] = useState({
+    id: '',
+    name: '',
+    title: '',
+    category: '',
+    description: '',
+    parent_id: null
+  });
+
+  // Memoized categories with custom order
+  const uniqueCategories = useMemo(() => {
+    const allCategories = [...new Set(ABOUT_DATA.map(item => item.category))];
+    return [
+      ...ORDERED_CATEGORIES.filter(cat => allCategories.includes(cat)),
+      ...allCategories.filter(cat => !ORDERED_CATEGORIES.includes(cat))
+    ];
+  }, []);
+  
+  // Memoized parent items
+  const parentItems = useMemo(() => 
+    ABOUT_DATA.filter(item => item.parent_id === null && item.id !== formData.id),
+    [formData.id]
+  );
+
+  // Filtered categories based on input
+  const filteredCategories = useMemo(() => {
+    if (!categoryInput) return uniqueCategories;
+    return uniqueCategories.filter(cat =>
+      cat.toLowerCase().includes(categoryInput.toLowerCase())
+    );
+  }, [categoryInput, uniqueCategories]);
+
+  // Load existing data if editing
+  useEffect(() => {
+    if (!isNewItem) {
+      const item = ABOUT_DATA.find(item => item.id === parseInt(id));
+      if (item) {
+        setFormData({
+          id: item.id,
+          name: item.name,
+          title: item.title,
+          category: item.category,
+          description: item.description,
+          parent_id: item.parent_id || ''
+        });
+        setCategoryInput(item.category);
+      } else {
+        setError('Item not found');
+      }
+    }
+  }, [id, isNewItem]);
+
+  // Clear messages when form changes
+  const clearMessages = useCallback(() => {
+    setError('');
+    setSuccess('');
+  }, []);
+
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'parent_id' ? (value === '' ? null : parseInt(value)) : value
+    }));
+    clearMessages();
+  }, [clearMessages]);
+
+  const handleDescriptionChange = useCallback((value) => {
+    setFormData(prev => ({ ...prev, description: value }));
+    clearMessages();
+  }, [clearMessages]);
+
+  const handleCategoryInputChange = useCallback((e) => {
+    const value = e.target.value;
+    setCategoryInput(value);
+    setFormData(prev => ({ ...prev, category: value }));
+    setShowCategoryDropdown(true);
+    clearMessages();
+  }, [clearMessages]);
+
+  const handleCategorySelect = useCallback((category) => {
+    setCategoryInput(category);
+    setFormData(prev => ({ ...prev, category }));
+    setShowCategoryDropdown(false);
+  }, []);
+
+  const handleCategoryBlur = useCallback(() => {
+    setTimeout(() => setShowCategoryDropdown(false), 200);
+  }, []);
+
+  const validateForm = useCallback(() => {
+    const validations = [
+      { field: 'name', message: 'Name is required' },
+      { field: 'title', message: 'Title is required' },
+      { field: 'category', message: 'Category is required' },
+      { field: 'description', message: 'Description is required' }
+    ];
+
+    for (const { field, message } of validations) {
+      const value = formData[field];
+      if (!value || (typeof value === 'string' && !value.trim())) {
+        setError(message);
+        return false;
+      }
+    }
+    return true;
+  }, [formData]);
+
+  const handleSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    clearMessages();
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('Saving data:', formData);
+      
+      setSuccess('Item saved successfully!');
+      setTimeout(() => navigate('/about'), 1500);
+    } catch (err) {
+      setError('Failed to save item. Please try again.');
+      setLoading(false);
+    }
+  }, [formData, validateForm, clearMessages, navigate]);
+
+  const handleCancel = useCallback(() => {
+    navigate('/about');
+  }, [navigate]);
+
+  return (
+    <DashboardLayout>
+      <div className="edit-about-page">
+        <div className="edit-form-card">
+          <div className="edit-form-header">
+            <h1 className="edit-form-title">
+              {isNewItem ? 'Add New Item' : 'Edit Item'}
+            </h1>
+            <p className="edit-form-subtitle">
+              {isNewItem 
+                ? 'Create a new about content item' 
+                : `Editing: ${formData.name || 'Loading...'}`
+              }
+            </p>
+          </div>
+
+          {error && <div className="error-banner">{error}</div>}
+          {success && <div className="success-banner">{success}</div>}
+
+          <form onSubmit={handleSubmit} className="edit-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="name" className="form-label form-label-required">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  className="form-input"
+                  placeholder="Enter item name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                />
+                <p className="form-help-text">The English name/title of the item</p>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="title" className="form-label form-label-required">
+                  Title (Chinese)
+                </label>
+                <input
+                  type="text"
+                  id="title"
+                  name="title"
+                  className="form-input"
+                  placeholder="Enter Chinese title"
+                  value={formData.title}
+                  onChange={handleChange}
+                  required
+                />
+                <p className="form-help-text">The Chinese title of the item</p>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="category" className="form-label form-label-required">
+                  Category
+                </label>
+                <div className="category-input-wrapper">
+                  <input
+                    type="text"
+                    id="category"
+                    name="category"
+                    className="form-input"
+                    placeholder="Type to search or create new category"
+                    value={categoryInput}
+                    onChange={handleCategoryInputChange}
+                    onFocus={() => setShowCategoryDropdown(true)}
+                    onBlur={handleCategoryBlur}
+                    required
+                    autoComplete="off"
+                  />
+                  {showCategoryDropdown && (
+                    <div className="category-dropdown">
+                      {filteredCategories.length > 0 ? (
+                        <>
+                          <div className="category-dropdown-label">Existing Categories:</div>
+                          {filteredCategories.map(cat => (
+                            <div
+                              key={cat}
+                              className="category-dropdown-item"
+                              onClick={() => handleCategorySelect(cat)}
+                            >
+                              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                            </div>
+                          ))}
+                        </>
+                      ) : null}
+                      {categoryInput && !uniqueCategories.includes(categoryInput.toLowerCase()) && (
+                        <>
+                          <div className="category-dropdown-label">Create New:</div>
+                          <div
+                            className="category-dropdown-item category-create-new"
+                            onClick={() => handleCategorySelect(categoryInput.toLowerCase())}
+                          >
+                            <strong>+ Create "{categoryInput}"</strong>
+                          </div>
+                        </>
+                      )}
+                      {filteredCategories.length === 0 && !categoryInput && (
+                        <div className="category-dropdown-empty">No categories available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="form-help-text">Type to search existing categories or create a new one</p>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="parent_id" className="form-label">
+                  Parent Item (Optional)
+                </label>
+                <select
+                  id="parent_id"
+                  name="parent_id"
+                  className="form-select"
+                  value={formData.parent_id || ''}
+                  onChange={handleChange}
+                >
+                  <option value="">None (Top Level)</option>
+                  {parentItems.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="form-help-text">Select a parent if this is a sub-item</p>
+              </div>
+            </div>
+
+            <div className="form-group form-group-full">
+              <label htmlFor="description" className="form-label form-label-required">
+                Description 
+              </label>
+              <div className="editor-wrapper">
+                <ReactQuill
+                  theme="snow"
+                  value={formData.description || ''}
+                  onChange={handleDescriptionChange}
+                  modules={{
+                    toolbar: [
+                      [{ 'header': [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline', 'strike'],
+                      [{ 'color': [] }, { 'background': [] }],
+                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ 'align': [] }],
+                      ['link', 'image'],
+                      ['blockquote', 'code-block'],
+                      [{ 'indent': '-1'}, { 'indent': '+1' }],
+                      ['clean']
+                    ]
+                  }}
+                  formats={[
+                    'header',
+                    'bold', 'italic', 'underline', 'strike',
+                    'color', 'background',
+                    'list', 'bullet',
+                    'align',
+                    'link', 'image',
+                    'blockquote', 'code-block',
+                    'indent'
+                  ]}
+                  style={{ height: '300px' }}
+                />
+              </div>
+              <p className="form-help-text">
+                Use the toolbar to format text, add links, tables, and more.
+              </p>
+              
+              {formData.description && formData.description.trim() && (
+                <>
+                  <button 
+                    type="button" 
+                    className="preview-toggle"
+                    onClick={() => setShowPreview(!showPreview)}
+                  >
+                    {showPreview ? 'Hide Preview' : 'Show Preview'}
+                  </button>
+
+                  {showPreview && (
+                    <div className="html-preview">
+                      <div dangerouslySetInnerHTML={{ __html: formData.description }} />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="form-actions">
+              <button 
+                type="button" 
+                className="btn-cancel" 
+                onClick={handleCancel}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn-save"
+                disabled={loading}
+              >
+                {loading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default EditAbout;
