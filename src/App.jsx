@@ -8,6 +8,8 @@ import About from './pages/About/About';
 import EditAbout from './pages/About/EditAbout';
 import News from './pages/News/News';
 import EditNews from './pages/News/EditNews';
+import Gallery from './pages/Gallery/Gallery';
+import EditGallery from './pages/Gallery/EditGallery';
 import './index.css';
 
 function App() {
@@ -53,6 +55,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <EditNews />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/gallery"
+            element={
+              <ProtectedRoute>
+                <Gallery />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/gallery/edit/:id"
+            element={
+              <ProtectedRoute>
+                <EditGallery />
               </ProtectedRoute>
             }
           />
