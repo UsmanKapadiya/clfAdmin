@@ -14,18 +14,8 @@
   padding: 48px 40px;
   width: 100%;
   max-width: 440px;
-  animation: slideUp 0.5s ease-out;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .login-header {
@@ -34,7 +24,7 @@
 }
 
 .login-logo-img {
-  width: 120px;
+  /* width: 120px; */
   height: auto;
   max-height: 80px;
   margin: 0 auto 20px;

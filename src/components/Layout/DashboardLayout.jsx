@@ -99,20 +99,13 @@ const DashboardLayout = ({ children }) => {
                         <button className="menu-toggle" onClick={toggleSidebar}>
                             <MenuIcon />
                         </button>
-                        <div className="topbar-search">
+                        {/* <div className="topbar-search">
                             <SearchIcon />
                             <input type="text" placeholder="Search..." />
-                        </div>
+                        </div> */}
                     </div>
 
-                    <div className="topbar-right">
-                        <button className="topbar-icon">
-                            <NotificationsIcon />
-                            <span className="notification-badge" />
-                        </button>
-                        <button className="topbar-icon">
-                            <SettingsIcon />
-                        </button>
+                    <div className="topbar-right">                    
                         <button className="topbar-icon" onClick={handleLogout}>
                             <LogoutIcon />
                         </button>
