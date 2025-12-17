@@ -10,6 +10,8 @@ import News from './pages/News/News';
 import EditNews from './pages/News/EditNews';
 import Gallery from './pages/Gallery/Gallery';
 import EditGallery from './pages/Gallery/EditGallery';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
 
 function App() {
@@ -77,6 +79,7 @@ function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        <ToastContainer />
       </Router>
     </AuthProvider>
   );

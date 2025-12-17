@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loginAdmin, logoutAdmin } from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -17,6 +18,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is already logged in
     const storedUser = localStorage.getItem('user');
+    // const token = localStorage.getItem('token');
+    
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -25,33 +28,27 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Simulate API call
-      // In production, replace this with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Demo credentials
-      if (email === 'admin@clf.com' && password === 'admin123') {
-        const userData = {
-          id: 1,
-          name: 'Admin User',
-          email: email,
-          role: 'admin',
-          avatar: null
-        };
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+      const result = await loginAdmin(email, password);
+      
+      if (result.success) {
+        setUser(result.user);
         return { success: true };
       } else {
-        throw new Error('Invalid credentials');
+        return { success: false, error: result.error || 'Invalid credentials' };
       }
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+  const logout = async () => {
+    try {
+      await logoutAdmin();
+      setUser(null);
+    } catch (error) {
+      // Even if logout API fails, clear local state
+      setUser(null);
+    }
   };
 
   const value = {
