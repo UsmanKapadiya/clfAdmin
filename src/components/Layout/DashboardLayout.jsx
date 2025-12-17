@@ -6,9 +6,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import NewspaperIcon from '@mui/icons-material/Newspaper';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import MenuIcon from '@mui/icons-material/Menu';
-import SearchIcon from '@mui/icons-material/Search';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import './DashboardLayout.css';
 import logo from "../../assets/logo.png"
@@ -73,12 +70,12 @@ const DashboardLayout = ({ children }) => {
                 </nav>
 
                 <div className="sidebar-footer">
-                    <div className="user-profile" onClick={handleLogout}>
+                    <div className="user-profile">
                         <div className="user-avatar">
                             {user?.name?.charAt(0) || 'A'}
                         </div>
                         <div className="user-info">
-                            <div className="user-name">{user?.name || 'Admin User'}</div>
+                            <div className="user-name">{user?.username || 'Admin User'}</div>
                             <div className="user-role">{user?.role || 'Administrator'}</div>
                         </div>
                     </div>
