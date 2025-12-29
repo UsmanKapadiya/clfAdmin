@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { ABOUT_DATA } from '../../data/aboutData';
+import { getAboutById, createAbout, updateAbout } from '../../services/aboutApi';
 import './EditAbout.css';
 
 const ORDERED_CATEGORIES = ['style', 'biography'];
@@ -12,7 +13,7 @@ const EditAbout = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNewItem = id === 'new';
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -20,7 +21,7 @@ const EditAbout = () => {
   const [categoryInput, setCategoryInput] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [formData, setFormData] = useState({
-    id: '',
+    _id: '',
     name: '',
     title: '',
     category: '',
@@ -28,20 +29,41 @@ const EditAbout = () => {
     parent_id: null
   });
 
+  // Store all about items for category/parent selection
+  const [aboutList, setAboutList] = useState([]);
+
+  // Fetch all about items for dropdowns (not just the one being edited)
+  useEffect(() => {
+    const fetchAllAbout = async () => {
+      const res = await import('../../services/aboutApi').then(m => m.getAboutList());
+      if (res.success && Array.isArray(res.data?.data)) {
+        setAboutList(res.data?.data);
+      }
+    };
+    fetchAllAbout();
+  }, []);
+
   // Memoized categories with custom order
   const uniqueCategories = useMemo(() => {
-    const allCategories = [...new Set(ABOUT_DATA.map(item => item.category))];
+    const allCategories = [...new Set(aboutList.map(item => item.category))];
     return [
       ...ORDERED_CATEGORIES.filter(cat => allCategories.includes(cat)),
       ...allCategories.filter(cat => !ORDERED_CATEGORIES.includes(cat))
     ];
-  }, []);
-  
+  }, [aboutList]);
+
   // Memoized parent items
-  const parentItems = useMemo(() => 
-    ABOUT_DATA.filter(item => item.parent_id === null && item.id !== formData.id),
-    [formData.id]
-  );
+
+  const parentItems = useMemo(() => {
+    // Use the current category (from parent or input)
+    const currentCategory = formData.category || categoryInput;
+    return aboutList.filter(item =>
+      item.parent_id === null &&
+      item._id !== formData.id &&
+      item._id !== formData.parent_id &&
+      (!currentCategory || item.category === currentCategory)
+    );
+  }, [aboutList, formData._id, formData.parent_id, formData.category, categoryInput]);
 
   // Filtered categories based on input
   const filteredCategories = useMemo(() => {
@@ -53,21 +75,28 @@ const EditAbout = () => {
 
   // Load existing data if editing
   useEffect(() => {
-    if (!isNewItem) {
-      const item = ABOUT_DATA.find(item => item.id === parseInt(id));
-      if (item) {
+    const fetchAbout = async () => {
+      setLoading(true);
+      setError('');
+      const res = await getAboutById(id);
+      if (res.success && res.data.data) {
+        const parent = res.data.data.parent_id;
         setFormData({
-          id: item.id,
-          name: item.name,
-          title: item.title,
-          category: item.category,
-          description: item.description,
-          parent_id: item.parent_id || ''
+          id: res.data.data._id,
+          name: res.data.data.name,
+          title: res.data.data.title,
+          category: res.data.data.category,
+          description: res.data.data.description,
+          parent_id: parent && typeof parent === 'object' ? parent._id : (parent || null)
         });
-        setCategoryInput(item.category);
+        setCategoryInput(res.data.data.category);
       } else {
-        setError('Item not found');
+        setError(res.error || 'Item not found');
       }
+      setLoading(false);
+    };
+    if (!isNewItem) {
+      fetchAbout();
     }
   }, [id, isNewItem]);
 
@@ -79,12 +108,23 @@ const EditAbout = () => {
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'parent_id' ? (value === '' ? null : parseInt(value)) : value
-    }));
+    if (name === 'parent_id') {
+      const parent = aboutList.find(item => (item.id || item._id) === value);
+      setFormData(prev => ({
+        ...prev,
+        parent_id: value === '' ? null : value,
+        category: parent ? parent.category : ''
+      }));
+      setCategoryInput(parent ? parent.category : '');
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      if (name === 'category') setCategoryInput(value);
+    }
     clearMessages();
-  }, [clearMessages]);
+  }, [clearMessages, aboutList]);
 
   const handleDescriptionChange = useCallback((value) => {
     setFormData(prev => ({ ...prev, description: value }));
@@ -110,45 +150,56 @@ const EditAbout = () => {
   }, []);
 
   const validateForm = useCallback(() => {
-    const validations = [
-      { field: 'name', message: 'Name is required' },
-      { field: 'title', message: 'Title is required' },
-      { field: 'category', message: 'Category is required' },
-      { field: 'description', message: 'Description is required' }
-    ];
-
-    for (const { field, message } of validations) {
-      const value = formData[field];
-      if (!value || (typeof value === 'string' && !value.trim())) {
-        setError(message);
-        return false;
-      }
+    // Always validate category, even if set by parent selection
+    if (!formData.name || !formData.name.trim()) {
+      setError('Name is required');
+      return false;
+    }
+    if (!formData.title || !formData.title.trim()) {
+      setError('Title is required');
+      return false;
+    }
+    // If parent is selected, category should be set by parent
+    if ((formData.parent_id !== null && (!formData.category || !formData.category.trim())) ||
+      (formData.parent_id === null && (!formData.category || !formData.category.trim()))) {
+      setError('Category is required');
+      return false;
+    }
+    if (!formData.description || !formData.description.trim()) {
+      setError('Description is required');
+      return false;
     }
     return true;
   }, [formData]);
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) {
       return;
     }
-
     setLoading(true);
     clearMessages();
-
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Saving data:', formData);
-      
-      setSuccess('Item saved successfully!');
-      setTimeout(() => navigate('/about'), 1500);
+      let res;
+      if (isNewItem) {
+        res = await createAbout(formData);
+      } else {
+        res = await updateAbout(formData.id || formData._id, formData);
+      }
+      if (res.success) {
+        setSuccess(res.message || 'Item saved successfully!');
+        toast.success(res.message || 'Item saved successfully!');
+        setTimeout(() => navigate('/about'), 1500);
+      } else {
+        setError(res.error || 'Failed to save item. Please try again.');
+        toast.error(res.error || 'Failed to save item. Please try again.');
+        setLoading(false);
+      }
     } catch (err) {
       setError('Failed to save item. Please try again.');
       setLoading(false);
     }
-  }, [formData, validateForm, clearMessages, navigate]);
+  }, [formData, validateForm, clearMessages, navigate, isNewItem]);
 
   const handleCancel = useCallback(() => {
     navigate('/about');
@@ -163,8 +214,8 @@ const EditAbout = () => {
               {isNewItem ? 'Add New Item' : 'Edit Item'}
             </h1>
             <p className="edit-form-subtitle">
-              {isNewItem 
-                ? 'Create a new about content item' 
+              {isNewItem
+                ? 'Create a new about content item'
                 : `Editing: ${formData.name || 'Loading...'}`
               }
             </p>
@@ -228,8 +279,9 @@ const EditAbout = () => {
                     onBlur={handleCategoryBlur}
                     required
                     autoComplete="off"
+                    disabled={formData.parent_id !== null || aboutList.length === 0}
                   />
-                  {showCategoryDropdown && (
+                  {showCategoryDropdown && formData.parent_id === null && (
                     <div className="category-dropdown">
                       {filteredCategories.length > 0 ? (
                         <>
@@ -262,7 +314,11 @@ const EditAbout = () => {
                     </div>
                   )}
                 </div>
-                <p className="form-help-text">Type to search existing categories or create a new one</p>
+                {formData.parent_id !== null ? (
+                  <p className="form-help-text">Category is set by parent item.</p>
+                ) : (
+                  <p className="form-help-text">Type to search existing categories or create a new one</p>
+                )}
               </div>
 
               <div className="form-group">
@@ -275,21 +331,30 @@ const EditAbout = () => {
                   className="form-select"
                   value={formData.parent_id || ''}
                   onChange={handleChange}
+                  disabled={aboutList.length === 0}
                 >
                   <option value="">None (Top Level)</option>
                   {parentItems.map(item => (
-                    <option key={item.id} value={item.id}>
+                    <option key={item.id || item._id} value={item.id || item._id}>
                       {item.name}
                     </option>
                   ))}
                 </select>
+                {formData.parent_id !== null && (
+                  <div className="selected-parent-name">
+                    <strong>Selected Parent:</strong> {(() => {
+                      const parent = aboutList.find(item => (item.id || item._id) === formData.parent_id);
+                      return parent ? parent.name : '';
+                    })()}
+                  </div>
+                )}
                 <p className="form-help-text">Select a parent if this is a sub-item</p>
               </div>
             </div>
 
             <div className="form-group form-group-full">
               <label htmlFor="description" className="form-label form-label-required">
-                Description 
+                Description
               </label>
               <div className="editor-wrapper">
                 <ReactQuill
@@ -301,11 +366,11 @@ const EditAbout = () => {
                       [{ 'header': [1, 2, 3, false] }],
                       ['bold', 'italic', 'underline', 'strike'],
                       [{ 'color': [] }, { 'background': [] }],
-                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                       [{ 'align': [] }],
                       ['link', 'image'],
                       ['blockquote', 'code-block'],
-                      [{ 'indent': '-1'}, { 'indent': '+1' }],
+                      [{ 'indent': '-1' }, { 'indent': '+1' }],
                       ['clean']
                     ]
                   }}
@@ -325,11 +390,11 @@ const EditAbout = () => {
               <p className="form-help-text">
                 Use the toolbar to format text, add links, tables, and more.
               </p>
-              
+
               {formData.description && formData.description.trim() && (
                 <>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="preview-toggle"
                     onClick={() => setShowPreview(!showPreview)}
                   >
@@ -346,16 +411,16 @@ const EditAbout = () => {
             </div>
 
             <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn-cancel" 
+              <button
+                type="button"
+                className="btn-cancel"
                 onClick={handleCancel}
                 disabled={loading}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn-save"
                 disabled={loading}
               >

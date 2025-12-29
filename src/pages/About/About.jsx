@@ -1,19 +1,19 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
-import { ABOUT_DATA } from '../../data/aboutData';
+import { getAboutList, deleteAbout } from '../../services/aboutApi';
+import { toast } from 'react-toastify';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DescriptionIcon from '@mui/icons-material/Description';
 import './About.css';
 
-const ORDERED_CATEGORIES = ['style', 'biography'];
-const CATEGORY_LABELS = {
-  style: 'STYLE',
-  biography: 'BIOGRAPHIES'
-};
+
 
 const About = () => {
   const navigate = useNavigate();
@@ -24,36 +24,36 @@ const About = () => {
     itemId: null,
     itemName: ''
   });
+  const [aboutData, setAboutData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Memoized unique categories with custom order
-  const uniqueCategories = useMemo(() => {
-    const allCategories = [...new Set(ABOUT_DATA.map(item => item.category))];
-    return [
-      ...ORDERED_CATEGORIES.filter(cat => allCategories.includes(cat)),
-      ...allCategories.filter(cat => !ORDERED_CATEGORIES.includes(cat))
-    ];
+  useEffect(() => {
+    const fetchAbout = async () => {
+      setLoading(true);
+      setError(null);
+      const res = await getAboutList();
+      if (res.success) {
+        setAboutData(res.data?.data);
+      } else {
+        setError(res.error || 'Failed to fetch about list');
+      }
+      setLoading(false);
+    };
+    fetchAbout();
   }, []);
 
+  // Memoized unique categories from API data
+  const uniqueCategories = useMemo(() => {
+    return Array.from(new Set(aboutData.map(item => item.category))).filter(Boolean);
+  }, [aboutData]);
+
   // Memoized filtered and organized data
-  const { organizedData, orphanedChildren } = useMemo(() => {
-    const filteredData = selectedCategory === 'all' 
-      ? ABOUT_DATA 
-      : ABOUT_DATA.filter(item => item.category === selectedCategory);
-
-    const organized = filteredData
-      .filter(item => item.parent_id === null)
-      .map(parent => ({
-        ...parent,
-        children: filteredData.filter(child => child.parent_id === parent.id)
-      }));
-
-    const orphaned = filteredData.filter(item => 
-      item.parent_id !== null && 
-      !filteredData.some(parent => parent.id === item.parent_id)
-    );
-
-    return { organizedData: organized, orphanedChildren: orphaned };
-  }, [selectedCategory]);
+  const filteredData = useMemo(() => {
+  return selectedCategory === 'all'
+    ? aboutData
+    : aboutData.filter(item => item.category === selectedCategory);
+}, [selectedCategory, aboutData]);
 
   const toggleExpand = useCallback((id) => {
     setExpandedItems(prev => 
@@ -68,18 +68,31 @@ const About = () => {
 
   const handleDelete = useCallback((id, e) => {
     e.stopPropagation();
-    const item = ABOUT_DATA.find(item => item.id === id);
+    const item = aboutData.find(item => item.id === id);
     setConfirmDialog({
       isOpen: true,
       itemId: id,
       itemName: item?.name || 'this item'
     });
-  }, []);
+  }, [aboutData]);
 
-  const confirmDelete = useCallback(() => {
-    console.log('Delete item:', confirmDialog.itemId);
-    // Add delete functionality here
-    setConfirmDialog({ isOpen: false, itemId: null, itemName: '' });
+  const confirmDelete = useCallback(async () => {
+    if (!confirmDialog.itemId) return;
+    setLoading(true);
+    const res = await deleteAbout(confirmDialog.itemId);
+    if (res.success) {
+      // Refresh about list after delete
+      const listRes = await getAboutList();
+      if (listRes.success) {
+        setAboutData(listRes.data?.data);
+      }
+      toast.success('Item deleted successfully!');
+      setConfirmDialog({ isOpen: false, itemId: null, itemName: '' });
+    } else {
+      toast.error(res.error || res.message || 'Failed to delete item');
+      setConfirmDialog({ isOpen: false, itemId: null, itemName: '' });
+    }
+    setLoading(false);
   }, [confirmDialog.itemId]);
 
   const closeConfirmDialog = useCallback(() => {
@@ -87,40 +100,47 @@ const About = () => {
   }, []);
 
   const getCategoryBadge = useCallback((category) => {
-    return CATEGORY_LABELS[category] || category.toUpperCase();
+    return category ? category.toUpperCase() : '';
   }, []);
 
-  const renderItem = useCallback((item, isChild = false) => {
-    const isExpanded = expandedItems.includes(item.id);
-    
+  function renderItem(item, isChild = false) {
+    const isExpanded = expandedItems.includes(item._id);
     return (
-      <div key={item.id}>
-        <div 
+      <>
+      <div key={item._id}>
+        <div
           className={`about-item ${isChild ? 'child' : 'parent'}`}
-          onClick={() => toggleExpand(item.id)}
+          onClick={() => toggleExpand(item._id)}
         >
           <div className="about-item-header">
             <div className="about-item-info">
               <div className="about-item-name">{item.name}</div>
               <div className="about-item-title">{item.title}</div>
               <div className="about-item-badges">
-                <span className={`badge category-${item.category}`}>
+                <span className={`badge`}>
                   {getCategoryBadge(item.category)}
+                </span>
+                <span className={`badge`}>
+                  {item.updatedAt
+                    ? `Updated ${dayjs(item.updatedAt).fromNow()}`
+                    : item.createdAt
+                      ? `Created ${dayjs(item.createdAt).fromNow()}`
+                      : ''}
                 </span>
               </div>
             </div>
             <div className="about-item-actions">
-              <button 
-                className="btn-icon edit" 
-                onClick={(e) => handleEdit(item.id, e)}
+              <button
+                className="btn-icon edit"
+                onClick={(e) => handleEdit(item._id, e)}
                 title="Edit"
                 aria-label={`Edit ${item.name}`}
               >
                 <EditIcon />
               </button>
-              <button 
-                className="btn-icon delete" 
-                onClick={(e) => handleDelete(item.id, e)}
+              <button
+                className="btn-icon delete"
+                onClick={(e) => handleDelete(item._id, e)}
                 title="Delete"
                 aria-label={`Delete ${item.name}`}
               >
@@ -134,18 +154,21 @@ const About = () => {
             </div>
           )}
         </div>
-        {!isChild && item.children?.length > 0 && (
+        {/* Only render children when parent is expanded */}
+        { item.children && item.children.length > 0 && (
           <div style={{ marginTop: '8px' }}>
             {item.children.map(child => renderItem(child, true))}
           </div>
         )}
       </div>
+      </>
     );
-  }, [expandedItems, toggleExpand, getCategoryBadge, handleEdit, handleDelete]);
+  }
 
   return (
-    <DashboardLayout>
-      <div className="about-page">
+    <>
+      <DashboardLayout>
+        <div className="about-page">
         <div className="page-header">
           <div className="about-header">
             <div>
@@ -166,10 +189,10 @@ const About = () => {
             className={`filter-tab ${selectedCategory === 'all' ? 'active' : ''}`}
             onClick={() => setSelectedCategory('all')}
           >
-            All ({ABOUT_DATA.length})
+            All ({aboutData.length})
           </button>
           {uniqueCategories.map((category) => {
-            const count = ABOUT_DATA.filter(i => i.category === category).length;
+            const count = aboutData.filter(i => i.category === category).length;
             return (
               <button 
                 key={category}
@@ -183,10 +206,13 @@ const About = () => {
         </div>
 
         <div className="about-list">
-          {organizedData.length > 0 || orphanedChildren.length > 0 ? (
+          {loading ? (
+            <div className="empty-state">Loading...</div>
+          ) : error ? (
+            <div className="empty-state">{error}</div>
+          ) : filteredData.length > 0 ? (
             <>
-              {organizedData.map(item => renderItem(item))}
-              {orphanedChildren.map(item => renderItem(item, true))}
+              {filteredData.map(item => renderItem(item))}
             </>
           ) : (
             <div className="empty-state">
@@ -208,7 +234,8 @@ const About = () => {
           type="danger"
         />
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </>
   );
 };
 
