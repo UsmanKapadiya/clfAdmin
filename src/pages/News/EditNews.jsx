@@ -2,15 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { NEWS_DATA } from '../../data/newsData';
+import { getNewsById, createNews, updateNews } from '../../services/newsApi';
 import './EditNews.css';
 
 const EditNews = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNewItem = id === 'new';
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -25,19 +26,31 @@ const EditNews = () => {
 
   // Load existing data if editing
   useEffect(() => {
-    if (!isNewItem) {
-      const item = NEWS_DATA.find(item => item.id === parseInt(id));
-      if (item) {
-        setFormData({
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          date: item.date,
-          slug: item.slug
-        });
-      } else {
+    const fetchNewsById = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await getNewsById(id);
+        if (res.success && res.data) {
+          const item = res.data.data || res.data;
+          setFormData({
+            id: item._id,
+            title: item.title,
+            description: item.description,
+            date: item.date,
+            slug: item.slug
+          });
+        } else {
+          setError(res.error || 'News item not found');
+        }
+      } catch {
         setError('News item not found');
+      } finally {
+        setLoading(false);
       }
+    };
+    if (!isNewItem) {
+      fetchNewsById();
     }
   }, [id, isNewItem]);
 
@@ -61,12 +74,12 @@ const EditNews = () => {
     const { name, value } = e.target;
     setFormData(prev => {
       const updated = { ...prev, [name]: value };
-      
+
       // Auto-generate slug when title changes
       if (name === 'title') {
         updated.slug = generateSlug(value);
       }
-      
+
       return updated;
     });
     clearMessages();
@@ -79,14 +92,13 @@ const EditNews = () => {
 
   const handleDateChange = useCallback((e) => {
     const dateValue = e.target.value;
-    // Convert from YYYY-MM-DD to "MONTH DD, YYYY" format
     const date = new Date(dateValue);
-    const formatted = date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const formatted = date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     }).toUpperCase();
-    
+
     setFormData(prev => ({ ...prev, date: formatted }));
     clearMessages();
   }, [clearMessages]);
@@ -107,7 +119,6 @@ const EditNews = () => {
       }
     }
 
-    // Validate slug format
     if (!/^[a-z0-9-]+$/.test(formData.slug)) {
       setError('Slug can only contain lowercase letters, numbers, and hyphens');
       return false;
@@ -118,23 +129,32 @@ const EditNews = () => {
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
     clearMessages();
-
+   
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Saving news data:', formData);
-      
-      setSuccess('News item saved successfully!');
-      setTimeout(() => navigate('/news'), 1500);
+      let res;
+      if (isNewItem) {
+        res = await createNews(formData);
+      } else {
+        res = await updateNews(formData.id || formData._id, formData);
+      }
+      if (res.success) {
+        setSuccess(res.data?.message || 'Item saved successfully!');
+        toast.success(res.data?.message || 'Item saved successfully!');
+        setTimeout(() => navigate('/news'), 1500);
+      } else {
+        setError(res.data?.error || 'Failed to save item. Please try again.');
+        toast.error(res.data?.error || 'Failed to save item. Please try again.');
+        setLoading(false);
+      }
     } catch (err) {
-      setError('Failed to save news item. Please try again.');
+      setError('Failed to save item. Please try again.');
       setLoading(false);
     }
   }, [formData, validateForm, clearMessages, navigate]);
@@ -165,8 +185,8 @@ const EditNews = () => {
               {isNewItem ? 'Add News Item' : 'Edit News Item'}
             </h1>
             <p className="edit-form-subtitle">
-              {isNewItem 
-                ? 'Create a new news announcement or event' 
+              {isNewItem
+                ? 'Create a new news announcement or event'
                 : `Editing: ${formData.title || 'Loading...'}`
               }
             </p>
@@ -248,11 +268,11 @@ const EditNews = () => {
                       [{ 'header': [1, 2, 3, false] }],
                       ['bold', 'italic', 'underline', 'strike'],
                       [{ 'color': [] }, { 'background': [] }],
-                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                       [{ 'align': [] }],
                       ['link', 'image'],
                       ['blockquote', 'code-block'],
-                      [{ 'indent': '-1'}, { 'indent': '+1' }],
+                      [{ 'indent': '-1' }, { 'indent': '+1' }],
                       ['clean']
                     ]
                   }}
@@ -272,11 +292,11 @@ const EditNews = () => {
               <p className="form-help-text">
                 Use the toolbar to format text, add links, images, and more.
               </p>
-              
+
               {formData.description && formData.description.trim() && (
                 <>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="preview-toggle"
                     onClick={() => setShowPreview(!showPreview)}
                   >
@@ -293,16 +313,16 @@ const EditNews = () => {
             </div>
 
             <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn-cancel" 
+              <button
+                type="button"
+                className="btn-cancel"
                 onClick={handleCancel}
                 disabled={loading}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn-save"
                 disabled={loading}
               >

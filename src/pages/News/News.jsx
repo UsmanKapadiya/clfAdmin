@@ -1,14 +1,17 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
-import { NEWS_DATA } from '../../data/newsData';
+import { getAllNews, deleteNews } from '../../services/newsApi';
+import { toast } from 'react-toastify';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import ArticleIcon from '@mui/icons-material/Article';
 import Pagination from '@mui/material/Pagination';
 import './News.css';
+import GlobalLoader from '../../components/Loader/GlobalLoader';
 
 const News = () => {
   const navigate = useNavigate();
@@ -21,36 +24,39 @@ const News = () => {
     itemId: null,
     itemName: ''
   });
+  const [newsData, setNewsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  // Memoized filtered and sorted data
+  useEffect(() => {
+    const fetchNews = async () => {
+      setLoading(true);
+      setError(null);
+      const res = await getAllNews(page, itemsPerPage);
+      if (res.success) {
+        setNewsData(res.data?.data || []);
+        setTotalPages(res.data?.totalpages || 1);
+        setTotalItems(res.data?.length || 0);
+      } else {
+        setError(res.error || 'Failed to fetch news');
+      }
+      setLoading(false);
+    };
+    fetchNews();
+  }, [page, itemsPerPage]);
+
+  // Memoized filtered and sorted data (client-side search only)
   const filteredNews = useMemo(() => {
-    let filtered = NEWS_DATA;
-    
-    if (searchTerm.trim()) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.title.toLowerCase().includes(search) ||
-        item.description.toLowerCase().includes(search) ||
-        item.date.toLowerCase().includes(search)
-      );
-    }
-
-    // Sort by date (newest first)
-    return filtered.sort((a, b) => {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return dateB - dateA;
-    });
-  }, [searchTerm]);
-
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
-  
-  const paginatedNews = useMemo(() => {
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    return filteredNews.slice(startIndex, endIndex);
-  }, [filteredNews, page, itemsPerPage]);
+    if (!searchTerm.trim()) return newsData;
+    const search = searchTerm.toLowerCase();
+    return newsData.filter(item =>
+      item.title.toLowerCase().includes(search) ||
+      item.description.toLowerCase().includes(search) ||
+      (item.date && item.date.toLowerCase().includes(search))
+    );
+  }, [searchTerm, newsData]);
 
   // Reset to page 1 when search changes
   const handleSearchChange = useCallback((e) => {
@@ -64,7 +70,7 @@ const News = () => {
   }, []);
 
   const toggleExpand = useCallback((id) => {
-    setExpandedItems(prev => 
+    setExpandedItems(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   }, []);
@@ -76,18 +82,31 @@ const News = () => {
 
   const handleDelete = useCallback((id, e) => {
     e.stopPropagation();
-    const item = NEWS_DATA.find(item => item.id === id);
+    const item = newsData.find(item => item.id === id);
     setConfirmDialog({
       isOpen: true,
       itemId: id,
       itemName: item?.title || 'this news item'
     });
-  }, []);
+  }, [newsData]);
 
-  const confirmDelete = useCallback(() => {
-    console.log('Delete news item:', confirmDialog.itemId);
-    // Add delete functionality here
-    setConfirmDialog({ isOpen: false, itemId: null, itemName: '' });
+  const confirmDelete = useCallback(async () => {
+    if (!confirmDialog.itemId) return;
+    setLoading(true);
+    const res = await deleteNews(confirmDialog.itemId);
+    if (res.success) {
+      // Refresh news list after delete
+      const listRes = await getAllNews();
+      if (listRes.success) {
+        setNewsData(listRes.data?.data || []);
+      }
+      setConfirmDialog({ isOpen: false, itemId: null, itemName: '' });
+      toast.success('News item deleted successfully!');
+    } else {
+      setConfirmDialog({ isOpen: false, itemId: null, itemName: '' });
+      toast.error(res.error || 'Failed to delete news item');
+    }
+    setLoading(false);
   }, [confirmDialog.itemId]);
 
   const closeConfirmDialog = useCallback(() => {
@@ -95,34 +114,41 @@ const News = () => {
   }, []);
 
   const renderNewsItem = useCallback((item) => {
-    const isExpanded = expandedItems.includes(item.id);
-    
+    const isExpanded = expandedItems.includes(item._id);
     return (
-      <div key={item.id}>
-        <div 
+      <div className="news-item-wrapper" key={item._id}>
+        <div
           className="news-item"
-          onClick={() => toggleExpand(item.id)}
+          onClick={() => toggleExpand(item._id)}
         >
           <div className="news-item-header">
             <div className="news-item-info">
               <div className="news-item-title">{item.title}</div>
               <div className="news-item-date">
-                <span className="date-badge">{item.date}</span>
+                <span className="date-badge">{dayjs(item.date).isValid() ? dayjs(item.date).format('DD-MMM-YYYY') : item.date}</span>
+                <span className={`date-badge`}>
+                  {item.updatedAt
+                    ? `Updated ${dayjs(item.updatedAt).fromNow()}`
+                    : item.createdAt
+                      ? `Created ${dayjs(item.createdAt).fromNow()}`
+                      : ''}
+                </span>
               </div>
-              <div className="news-item-slug">{item.slug}</div>
+              {/* Slug */}
+              {/* <div className="news-item-slug">{item.slug}</div> */}
             </div>
             <div className="news-item-actions">
-              <button 
-                className="btn-icon edit" 
-                onClick={(e) => handleEdit(item.id, e)}
+              <button
+                className="btn-icon edit"
+                onClick={(e) => handleEdit(item._id, e)}
                 title="Edit"
                 aria-label={`Edit ${item.title}`}
               >
                 <EditIcon />
               </button>
-              <button 
-                className="btn-icon delete" 
-                onClick={(e) => handleDelete(item.id, e)}
+              <button
+                className="btn-icon delete"
+                onClick={(e) => handleDelete(item._id, e)}
                 title="Delete"
                 aria-label={`Delete ${item.title}`}
               >
@@ -167,7 +193,7 @@ const News = () => {
             className="search-input"
           />
           {searchTerm && (
-            <button 
+            <button
               className="clear-search"
               onClick={() => {
                 setSearchTerm('');
@@ -181,27 +207,26 @@ const News = () => {
         </div>
 
         <div className="news-list">
-          {paginatedNews.length > 0 ? (
-            paginatedNews.map(item => renderNewsItem(item))
+          {loading && <GlobalLoader text="Loading..." />}
+          {error ? (
+            <div className="empty-state">{error}</div>
+          ) : filteredNews.length > 0 ? (
+            filteredNews.map(item => (
+              <div key={item._id}>{renderNewsItem(item)}</div>
+            ))
           ) : (
             <div className="empty-state">
               <div className="empty-state-icon"><ArticleIcon style={{ fontSize: 48 }} /></div>
               <div className="empty-state-text">
                 {searchTerm ? 'No news items found' : 'No news items yet'}
               </div>
-              <div className="empty-state-subtext">
-                {searchTerm 
-                  ? 'Try a different search term' 
-                  : 'Add your first news item to get started'
-                }
-              </div>
             </div>
           )}
         </div>
 
-        {filteredNews.length > 0 && totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="pagination-container">
-            <Pagination 
+            <Pagination
               count={totalPages}
               page={page}
               onChange={handlePageChange}
