@@ -11,6 +11,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DescriptionIcon from '@mui/icons-material/Description';
+
+import GlobalLoader from '../../components/Loader/GlobalLoader';
 import './About.css';
 
 
@@ -38,9 +40,9 @@ const About = () => {
       } else {
         setError(res.error || 'Failed to fetch about list');
       }
-      setLoading(false);
     };
     fetchAbout();
+    setLoading(false);
   }, []);
 
   // Memoized unique categories from API data
@@ -206,9 +208,8 @@ const About = () => {
         </div>
 
         <div className="about-list">
-          {loading ? (
-            <div className="empty-state">Loading...</div>
-          ) : error ? (
+          {loading && <GlobalLoader text="Loading..." />}
+          {error ? (
             <div className="empty-state">{error}</div>
           ) : filteredData.length > 0 ? (
             <>
@@ -218,7 +219,7 @@ const About = () => {
             <div className="empty-state">
               <div className="empty-state-icon"><DescriptionIcon style={{ fontSize: 48 }} /></div>
               <div className="empty-state-text">No items found</div>
-              <div className="empty-state-subtext">Try changing your filter or add a new item</div>
+              {/* <div className="empty-state-subtext">Try changing your filter or add a new item</div> */}
             </div>
           )}
         </div>
