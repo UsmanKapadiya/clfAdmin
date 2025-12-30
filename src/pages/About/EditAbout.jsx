@@ -187,12 +187,12 @@ const EditAbout = () => {
         res = await updateAbout(formData.id || formData._id, formData);
       }
       if (res.success) {
-        setSuccess(res.message || 'Item saved successfully!');
-        toast.success(res.message || 'Item saved successfully!');
+        setSuccess(res.data?.message || 'Item saved successfully!');
+        toast.success(res.data?.message || 'Item saved successfully!');
         setTimeout(() => navigate('/about'), 1500);
       } else {
-        setError(res.error || 'Failed to save item. Please try again.');
-        toast.error(res.error || 'Failed to save item. Please try again.');
+        setError(res.data?.error || 'Failed to save item. Please try again.');
+        toast.error(res.data?.error || 'Failed to save item. Please try again.');
         setLoading(false);
       }
     } catch (err) {
