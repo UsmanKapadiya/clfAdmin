@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { getGalleryById } from '../../data/galleryData';
+import { getGalleryById } from '../../services/galleryApi';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import DeleteIcon from '@mui/icons-material/Delete';
 import './EditGallery.css';
+import { createGallery, updateGallery } from '../../services/galleryApi';
+import { toast } from 'react-toastify';
 
 const EditGallery = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNewItem = id === 'new';
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -25,19 +27,27 @@ const EditGallery = () => {
 
   useEffect(() => {
     if (!isNewItem) {
-      const item = getGalleryById(id);
-      if (item) {
-        setFormData({
-          id: item.id,
-          title: item.title,
-          year: item.year,
-          subTitle: item.subTitle,
-          catalogThumbnail: item.catalogThumbnail,
-          photos: item.photos
-        });
-      } else {
-        setError('Gallery not found');
-      }
+      setLoading(true);
+      setError('');
+      getGalleryById(id)
+        .then(res => {
+          if (res.success && res.data) {
+            const item = res.data?.data;
+            console.log(item)
+            setFormData({
+              id: item._id,
+              title: item.title,
+              year: item.year,
+              subTitle: item.subTitle,
+              catalogThumbnail: item.catalogThumbnail,
+              photos: item.photos || []
+            });
+          } else {
+            setError(res.error || 'Gallery not found');
+          }
+        })
+        .catch(() => setError('Gallery not found'))
+        .finally(() => setLoading(false));
     }
   }, [id, isNewItem]);
 
@@ -57,7 +67,7 @@ const EditGallery = () => {
     input.type = 'file';
     input.accept = 'image/*';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
       const files = Array.from(e.target.files);
       if (files.length > 0) {
@@ -68,14 +78,14 @@ const EditGallery = () => {
           src: URL.createObjectURL(file),
           file: file // Store file object for later upload
         }));
-        
+
         setFormData(prev => ({
           ...prev,
           photos: [...prev.photos, ...newPhotos]
         }));
       }
     };
-    
+
     input.click();
   }, []);
 
@@ -84,7 +94,7 @@ const EditGallery = () => {
       id: Date.now() + index,
       src: url.trim()
     })).filter(photo => photo.src);
-    
+
     setFormData(prev => ({
       ...prev,
       photos: [...prev.photos, ...newPhotos]
@@ -125,9 +135,17 @@ const EditGallery = () => {
 
     for (const { field, message } of validations) {
       const value = formData[field];
-      if (!value || (typeof value === 'string' && !value.trim())) {
-        setError(message);
-        return false;
+      if (field === 'catalogThumbnail') {
+        // Accept if it's a file object or a non-empty string
+        if (!value || (typeof value === 'string' && !value.trim()) || (typeof value === 'object' && !value.file)) {
+          setError(message);
+          return false;
+        }
+      } else {
+        if (!value || (typeof value === 'string' && !value.trim())) {
+          setError(message);
+          return false;
+        }
       }
     }
 
@@ -149,7 +167,6 @@ const EditGallery = () => {
 
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) {
       return;
     }
@@ -158,16 +175,60 @@ const EditGallery = () => {
     clearMessages();
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Saving gallery data:', formData);
-      
-      setSuccess('Gallery saved successfully!');
-      setTimeout(() => navigate('/gallery'), 1500);
+      // Prepare FormData for file upload
+      const fd = new FormData();
+      fd.append('id', formData.id);
+      fd.append('title', formData.title);
+      fd.append('year', formData.year);
+      fd.append('subTitle', formData.subTitle);
+
+      // Handle catalogThumbnail: if it's a file, append as file, else as string
+      if (formData.catalogThumbnail && typeof formData.catalogThumbnail === 'object' && formData.catalogThumbnail.file) {
+        fd.append('catalogThumbnail', formData.catalogThumbnail.file);
+      } else if (formData.catalogThumbnail) {
+        fd.append('catalogThumbnail', formData.catalogThumbnail);
+      }
+
+      // Append photos (files and/or URLs)
+      if (formData.catalogThumbnail instanceof File) {
+        fd.append('catalogThumbnail', formData.catalogThumbnail);
+      } else if (
+        formData.catalogThumbnail &&
+        typeof formData.catalogThumbnail === 'object' &&
+        formData.catalogThumbnail.file
+      ) {
+        fd.append('catalogThumbnail', formData.catalogThumbnail.file);
+      } else if (formData.catalogThumbnail) {
+        fd.append('catalogThumbnail', formData.catalogThumbnail);
+      }
+      formData.photos.forEach((photo, idx) => {
+        if (photo.file) {
+          fd.append('photos', photo.file);
+        } else if (photo.src) {
+          fd.append('photoUrls', photo.src);
+        }
+      });
+
+      let res;
+      if (isNewItem) {
+        res = await createGallery(fd, formData.id);
+      } else {
+        res = await updateGallery(formData.id, fd);
+      }
+      if (res.success) {
+        toast.success('Gallery saved successfully!');
+        navigate('/gallery');
+      } else {
+        setError(res.error || 'Failed to save gallery. Please try again.');
+        toast.error(res.error || 'Failed to save gallery. Please try again.');
+      }
     } catch (err) {
       setError('Failed to save gallery. Please try again.');
+      toast.error('Failed to save gallery. Please try again.');
+    } finally {
       setLoading(false);
     }
-  }, [formData, validateForm, clearMessages, navigate]);
+  }, [formData, validateForm, clearMessages, navigate, isNewItem]);
 
   const handleCancel = useCallback(() => {
     navigate('/gallery');
@@ -182,8 +243,8 @@ const EditGallery = () => {
               {isNewItem ? 'Add Gallery' : 'Edit Gallery'}
             </h1>
             <p className="edit-form-subtitle">
-              {isNewItem 
-                ? 'Create a new photo gallery' 
+              {isNewItem
+                ? 'Create a new photo gallery'
                 : `Editing: ${formData.title || 'Loading...'}`
               }
             </p>
@@ -262,9 +323,8 @@ const EditGallery = () => {
                     name="catalogThumbnail"
                     className="form-input"
                     placeholder="https://example.com/image.jpg or upload image"
-                    value={formData.catalogThumbnail}
+                    value={typeof formData.catalogThumbnail === 'string' ? formData.catalogThumbnail : ''}
                     onChange={handleChange}
-                    required
                   />
                   <button
                     type="button"
@@ -277,7 +337,7 @@ const EditGallery = () => {
                         const file = e.target.files[0];
                         if (file) {
                           const url = URL.createObjectURL(file);
-                          setFormData(prev => ({ ...prev, catalogThumbnail: url }));
+                          setFormData(prev => ({ ...prev, catalogThumbnail: { src: url, file } }));
                         }
                       };
                       input.click();
@@ -294,8 +354,8 @@ const EditGallery = () => {
             {formData.catalogThumbnail && (
               <div className="thumbnail-preview">
                 <label className="form-label">Thumbnail Preview:</label>
-                <img 
-                  src={formData.catalogThumbnail} 
+                <img
+                  src={typeof formData.catalogThumbnail === 'string' ? formData.catalogThumbnail : formData.catalogThumbnail.src}
                   alt="Catalog thumbnail preview"
                   onError={(e) => e.target.style.display = 'none'}
                   onLoad={(e) => e.target.style.display = 'block'}
@@ -357,7 +417,7 @@ const EditGallery = () => {
                           <DeleteIcon />
                         </button>
                       </div>
-                      
+
                       {/* <div className="photo-input-group">
                         <input
                           type="url"
@@ -371,8 +431,8 @@ const EditGallery = () => {
 
                       {photo.src && (
                         <div className="photo-preview">
-                          <img 
-                            src={photo.src} 
+                          <img
+                            src={photo.src}
                             alt={`Photo ${index + 1}`}
                             onError={(e) => {
                               e.target.style.display = 'none';
@@ -395,16 +455,16 @@ const EditGallery = () => {
             </div>
 
             <div className="form-actions">
-              <button 
-                type="button" 
-                className="btn-cancel" 
+              <button
+                type="button"
+                className="btn-cancel"
                 onClick={handleCancel}
                 disabled={loading}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn-save"
                 disabled={loading}
               >

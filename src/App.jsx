@@ -10,6 +10,7 @@ import News from './pages/News/News';
 import EditNews from './pages/News/EditNews';
 import Gallery from './pages/Gallery/Gallery';
 import EditGallery from './pages/Gallery/EditGallery';
+import EditVideoGallery from './pages/Gallery/EditVideoGallery';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './index.css';
@@ -73,6 +74,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <EditGallery />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/gallery/videos/edit/:id"
+            element={
+              <ProtectedRoute>
+                <EditVideoGallery />
               </ProtectedRoute>
             }
           />
