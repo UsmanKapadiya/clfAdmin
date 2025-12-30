@@ -77,3 +77,20 @@ export const getAdminProfile = async () => {
     };
   }
 };
+
+// Get Dashboard Stats
+export const getDashboardStats = async () => {
+  try {
+    const response = await apiClient('/dashboard', {
+      method: 'GET',
+    });
+
+    return response;
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error.message || 'Failed to fetch profile' 
+    };
+  }
+};
+
