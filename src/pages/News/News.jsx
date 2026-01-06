@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+dayjs.extend(relativeTime);
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
@@ -127,9 +129,9 @@ const News = () => {
               <div className="news-item-date">
                 <span className="date-badge">{dayjs(item.date).isValid() ? dayjs(item.date).format('DD-MMM-YYYY') : item.date}</span>
                 <span className={`date-badge`}>
-                  {item.updatedAt
+                  {item.updatedAt && dayjs(item.updatedAt).isValid()
                     ? `Updated ${dayjs(item.updatedAt).fromNow()}`
-                    : item.createdAt
+                    : item.createdAt && dayjs(item.createdAt).isValid()
                       ? `Created ${dayjs(item.createdAt).fromNow()}`
                       : ''}
                 </span>

@@ -228,11 +228,6 @@ const EditNews = () => {
                   required
                 />
                 <p className="form-help-text">Publication date of the news item</p>
-                {formData.date && (
-                  <p className="form-help-text display-date">
-                    Display format: <strong>{formData.date}</strong>
-                  </p>
-                )}
               </div>
 
               <div className="form-group">
