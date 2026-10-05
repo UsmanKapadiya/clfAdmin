@@ -5,6 +5,7 @@ import 'react-quill/dist/quill.snow.css';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { getNewsById, createNews, updateNews } from '../../services/newsApi';
+import ContentRender from "../../components/ContentRender/ContentRender";
 import './EditNews.css';
 
 const EditNews = () => {
@@ -92,12 +93,14 @@ const EditNews = () => {
 
   const handleDateChange = useCallback((e) => {
     const dateValue = e.target.value;
-    const date = new Date(dateValue);
-    const formatted = date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    }).toUpperCase();
+    const [year, month, day] = dateValue.split('-').map(Number);
+    const formatted = dateValue
+      ? new Date(year, month - 1, day).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }).toUpperCase()
+      : '';
 
     setFormData(prev => ({ ...prev, date: formatted }));
     clearMessages();
@@ -168,9 +171,16 @@ const EditNews = () => {
   // Convert date format for input (from "MONTH DD, YYYY" to "YYYY-MM-DD")
   const getDateInputValue = useCallback(() => {
     if (!formData.date) return '';
+    const isoDate = formData.date.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoDate) return isoDate[1];
+
     try {
       const date = new Date(formData.date);
-      return date.toISOString().split('T')[0];
+      if (Number.isNaN(date.getTime())) return '';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     } catch {
       return '';
     }
@@ -300,7 +310,13 @@ const EditNews = () => {
 
                   {showPreview && (
                     <div className="html-preview">
-                      <div dangerouslySetInnerHTML={{ __html: formData.description }} />
+                      {/* <div dangerouslySetInnerHTML={{ __html: formData.description }} /> */}
+                      <div
+                        className="content-description"
+                        dangerouslySetInnerHTML={{
+                          __html: ContentRender(formData.description),
+                        }}
+                      />
                     </div>
                   )}
                 </>

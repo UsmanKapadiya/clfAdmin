@@ -14,6 +14,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 import Pagination from '@mui/material/Pagination';
 import './News.css';
 import GlobalLoader from '../../components/Loader/GlobalLoader';
+import ContentRender from "../../components/ContentRender/ContentRender";
 
 const News = () => {
   const navigate = useNavigate();
@@ -160,7 +161,13 @@ const News = () => {
           </div>
           {isExpanded && (
             <div className="news-item-description">
-              <div dangerouslySetInnerHTML={{ __html: item.description }} />
+              {/* <div dangerouslySetInnerHTML={{ __html: item.description }} /> */}
+              <div
+                  className="content-description"
+                  dangerouslySetInnerHTML={{
+                    __html: ContentRender(item.description),
+                  }}
+              />
             </div>
           )}
         </div>
