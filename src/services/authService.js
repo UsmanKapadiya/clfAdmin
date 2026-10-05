@@ -5,7 +5,7 @@ export const loginAdmin = async (username, password) => {
   try {
     const response = await apiClient('/admin/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username: username, password }),
     });
 
     if (response.success) {

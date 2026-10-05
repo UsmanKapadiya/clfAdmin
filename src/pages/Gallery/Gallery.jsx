@@ -14,6 +14,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloseIcon from '@mui/icons-material/Close';
 import Pagination from '@mui/material/Pagination';
+import { resolveMediaUrl } from '../../services/api';
 import './Gallery.css';
 
 const Gallery = () => {
@@ -183,7 +184,7 @@ const Gallery = () => {
   }, []);
 
   const handleViewGallery = useCallback((gallery) => {
-    const images = gallery.photos.map(photo => photo.src);
+    const images = gallery.photos.map(photo => resolveMediaUrl(photo.src));
     setLightbox({
       isOpen: true,
       images: images,
@@ -324,7 +325,7 @@ const Gallery = () => {
                       onClick={() => handleViewGallery(gallery)}
                     >
                       <img
-                        src={gallery.catalogThumbnail}
+                        src={resolveMediaUrl(gallery.catalogThumbnail)}
                         alt={gallery.title}
                         loading="lazy"
                       />
@@ -369,7 +370,7 @@ const Gallery = () => {
                       style={{ cursor: 'pointer' }}
                     >
                       <img
-                        src={gallery.catalogThumbnail}
+                        src={resolveMediaUrl(gallery.catalogThumbnail)}
                         alt={gallery.title}
                         loading="lazy"
                       />

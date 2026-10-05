@@ -7,6 +7,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import './EditGallery.css';
 import { createGallery, updateGallery } from '../../services/galleryApi';
 import { toast } from 'react-toastify';
+import { resolveMediaUrl } from '../../services/api';
 
 const EditGallery = () => {
   const { id } = useParams();
@@ -355,7 +356,7 @@ const EditGallery = () => {
               <div className="thumbnail-preview">
                 <label className="form-label">Thumbnail Preview:</label>
                 <img
-                  src={typeof formData.catalogThumbnail === 'string' ? formData.catalogThumbnail : formData.catalogThumbnail.src}
+                  src={resolveMediaUrl(typeof formData.catalogThumbnail === 'string' ? formData.catalogThumbnail : formData.catalogThumbnail.src)}
                   alt="Catalog thumbnail preview"
                   onError={(e) => e.target.style.display = 'none'}
                   onLoad={(e) => e.target.style.display = 'block'}
@@ -432,7 +433,7 @@ const EditGallery = () => {
                       {photo.src && (
                         <div className="photo-preview">
                           <img
-                            src={photo.src}
+                            src={resolveMediaUrl(photo.src)}
                             alt={`Photo ${index + 1}`}
                             onError={(e) => {
                               e.target.style.display = 'none';

@@ -4,8 +4,9 @@ import { toast } from 'react-toastify';
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import VideoLibraryIcon from '@mui/icons-material/VideoLibrary';
-
 import { getVideoGalleryById, updateVideoGallery, createVideoGallery } from '../../services/galleryApi';
+import { resolveMediaUrl } from '../../services/api';
+import './EditGallery.css';
 
 const EditVideoGallery = () => {
   const { id } = useParams();
@@ -174,7 +175,7 @@ const EditVideoGallery = () => {
               <div className="thumbnail-preview">
                 <label className="form-label">Thumbnail Preview:</label>
                 <img
-                  src={formData.catalogThumbnail}
+                  src={resolveMediaUrl(formData.catalogThumbnail)}
                   alt="Thumbnail preview"
                   onError={e => (e.target.style.display = 'none')}
                   onLoad={e => (e.target.style.display = 'block')}
@@ -197,7 +198,7 @@ const EditVideoGallery = () => {
               </div>
             )}
             <div className="form-actions">
-              <button type="submit" className="btn-add" disabled={loading}>
+              <button type="submit" className="btn-save" disabled={loading}>
                 <VideoLibraryIcon style={{ marginRight: 6 }} />
                 {isNewItem ? 'Add Video' : 'Save Changes'}
               </button>
