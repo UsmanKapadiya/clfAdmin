@@ -16,6 +16,69 @@ import GlobalLoader from '../../components/Loader/GlobalLoader';
 import './About.css';
 
 
+const getSafeDescriptionHtml = (description = '') => {
+    let html = description;
+    const containsEncodedTags = /&lt;\s*\/?\s*[a-z][^&]*?&gt;/i;
+
+    while (containsEncodedTags.test(html)) {
+        html = new DOMParser().parseFromString(html, 'text/html').body.textContent || '';
+    }
+
+    const parsedDescription = new DOMParser().parseFromString(html, 'text/html');
+    const allowedTags = new Set([
+        'A', 'B', 'BLOCKQUOTE', 'BR', 'CAPTION', 'DD', 'DIV', 'DL', 'DT', 'EM',
+        'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'I', 'IMG', 'LI', 'OL', 'P',
+        'SPAN', 'STRONG', 'SUB', 'SUP', 'TABLE', 'TBODY', 'TD', 'TFOOT', 'TH',
+        'THEAD', 'TR', 'U', 'UL',
+    ]);
+    const disallowedContentTags = new Set(['IFRAME', 'OBJECT', 'SCRIPT', 'STYLE', 'SVG', 'TEMPLATE']);
+
+    parsedDescription.body.querySelectorAll('*').forEach(element => {
+        if (!allowedTags.has(element.tagName)) {
+            if (disallowedContentTags.has(element.tagName)) {
+                element.remove();
+            } else {
+                element.replaceWith(...element.childNodes);
+            }
+            return;
+        }
+
+        [...element.attributes].forEach(attribute => {
+            const name = attribute.name.toLowerCase();
+            const allowedAttributes = {
+                a: ['href', 'target', 'rel'],
+                img: ['src', 'alt', 'width', 'height'],
+                table: ['border', 'cellspacing', 'cellpadding', 'width', 'align'],
+                td: ['colspan', 'rowspan', 'width', 'valign', 'align'],
+                th: ['colspan', 'rowspan', 'width', 'valign', 'align'],
+            }[element.tagName.toLowerCase()] || [];
+
+            if (name === 'class' || allowedAttributes.includes(name)) return;
+
+            element.removeAttribute(attribute.name);
+        });
+
+        if (element.tagName === 'A' && element.hasAttribute('href')) {
+            const href = element.getAttribute('href').trim();
+            if (!/^(https?:|mailto:|tel:|#|\/|\.{1,2}\/)/i.test(href)) {
+                element.removeAttribute('href');
+            }
+            if (element.getAttribute('target') === '_blank') {
+                element.setAttribute('rel', 'noopener noreferrer');
+            }
+        }
+
+        if (element.tagName === 'IMG' && element.hasAttribute('src')) {
+            const src = element.getAttribute('src').trim();
+            if (!/^(https?:|\/|\.{1,2}\/)/i.test(src)) {
+                element.removeAttribute('src');
+            }
+        }
+    });
+
+    return parsedDescription.body.innerHTML;
+};
+
 
 const About = () => {
   const navigate = useNavigate();
@@ -52,13 +115,13 @@ const About = () => {
 
   // Memoized filtered and organized data
   const filteredData = useMemo(() => {
-  return selectedCategory === 'all'
-    ? aboutData
-    : aboutData.filter(item => item.category === selectedCategory);
-}, [selectedCategory, aboutData]);
+    return selectedCategory === 'all'
+      ? aboutData
+      : aboutData.filter(item => item.category === selectedCategory);
+  }, [selectedCategory, aboutData]);
 
   const toggleExpand = useCallback((id) => {
-    setExpandedItems(prev => 
+    setExpandedItems(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   }, []);
@@ -109,60 +172,66 @@ const About = () => {
     const isExpanded = expandedItems.includes(item._id);
     return (
       <>
-      <div key={item._id}>
-        <div
-          className={`about-item ${isChild ? 'child' : 'parent'}`}
-          onClick={() => toggleExpand(item._id)}
-        >
-          <div className="about-item-header">
-            <div className="about-item-info">
-              <div className="about-item-name">{item.name}</div>
-              <div className="about-item-title">{item.title}</div>
-              <div className="about-item-badges">
-                <span className={`badge`}>
-                  {getCategoryBadge(item.category)}
-                </span>
-                <span className={`badge`}>
-                  {item.updatedAt
-                    ? `Updated ${dayjs(item.updatedAt).fromNow()}`
-                    : item.createdAt
-                      ? `Created ${dayjs(item.createdAt).fromNow()}`
-                      : ''}
-                </span>
+        <div key={item._id}>
+          <div
+            className={`about-item ${isChild ? 'child' : 'parent'}`}
+            onClick={() => toggleExpand(item._id)}
+          >
+            <div className="about-item-header">
+              <div className="about-item-info">
+                <div className="about-item-name">{item.name}</div>
+                <div className="about-item-title">{item.title}</div>
+                <div className="about-item-badges">
+                  <span className={`badge`}>
+                    {getCategoryBadge(item.category)}
+                  </span>
+                  <span className={`badge`}>
+                    {item.updatedAt
+                      ? `Updated ${dayjs(item.updatedAt).fromNow()}`
+                      : item.createdAt
+                        ? `Created ${dayjs(item.createdAt).fromNow()}`
+                        : ''}
+                  </span>
+                </div>
+              </div>
+              <div className="about-item-actions">
+                <button
+                  className="btn-icon edit"
+                  onClick={(e) => handleEdit(item._id, e)}
+                  title="Edit"
+                  aria-label={`Edit ${item.name}`}
+                >
+                  <EditIcon />
+                </button>
+                <button
+                  className="btn-icon delete"
+                  onClick={(e) => handleDelete(item._id, e)}
+                  title="Delete"
+                  aria-label={`Delete ${item.name}`}
+                >
+                  <DeleteIcon />
+                </button>
               </div>
             </div>
-            <div className="about-item-actions">
-              <button
-                className="btn-icon edit"
-                onClick={(e) => handleEdit(item._id, e)}
-                title="Edit"
-                aria-label={`Edit ${item.name}`}
-              >
-                <EditIcon />
-              </button>
-              <button
-                className="btn-icon delete"
-                onClick={(e) => handleDelete(item._id, e)}
-                title="Delete"
-                aria-label={`Delete ${item.name}`}
-              >
-                <DeleteIcon />
-              </button>
-            </div>
+            {isExpanded && (
+              <div className="about-item-description">
+                {/* <div dangerouslySetInnerHTML={{ __html: item.description }} /> */}
+                <div
+                  className="content-description"
+                  dangerouslySetInnerHTML={{
+                    __html: getSafeDescriptionHtml(item.description),
+                  }}
+                />
+              </div>
+            )}
           </div>
-          {isExpanded && (
-            <div className="about-item-description">
-              <div dangerouslySetInnerHTML={{ __html: item.description }} />
+          {/* Only render children when parent is expanded */}
+          {item.children && item.children.length > 0 && (
+            <div style={{ marginTop: '8px' }}>
+              {item.children.map(child => renderItem(child, true))}
             </div>
           )}
         </div>
-        {/* Only render children when parent is expanded */}
-        { item.children && item.children.length > 0 && (
-          <div style={{ marginTop: '8px' }}>
-            {item.children.map(child => renderItem(child, true))}
-          </div>
-        )}
-      </div>
       </>
     );
   }
@@ -171,70 +240,70 @@ const About = () => {
     <>
       <DashboardLayout>
         <div className="about-page">
-        <div className="page-header">
-          <div className="about-header">
-            <div>
-              <h1 className="page-title">About Content</h1>
-              <p className="page-subtitle">Manage martial arts and instructor information</p>
-            </div>
-            <div className="about-actions">
-              <button className="btn-add" onClick={() => navigate('/about/edit/new')}>
-                <AddIcon />
-                Add New Item
-              </button>
+          <div className="page-header">
+            <div className="about-header">
+              <div>
+                <h1 className="page-title">About Content</h1>
+                <p className="page-subtitle">Manage martial arts and instructor information</p>
+              </div>
+              <div className="about-actions">
+                <button className="btn-add" onClick={() => navigate('/about/edit/new')}>
+                  <AddIcon />
+                  Add New Item
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="filter-tabs">
-          <button 
-            className={`filter-tab ${selectedCategory === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedCategory('all')}
-          >
-            All ({aboutData.length})
-          </button>
-          {uniqueCategories.map((category) => {
-            const count = aboutData.filter(i => i.category === category).length;
-            return (
-              <button 
-                key={category}
-                className={`filter-tab ${selectedCategory === category ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category.charAt(0).toUpperCase() + category.slice(1)} ({count})
-              </button>
-            );
-          })}
-        </div>
+          <div className="filter-tabs">
+            <button
+              className={`filter-tab ${selectedCategory === 'all' ? 'active' : ''}`}
+              onClick={() => setSelectedCategory('all')}
+            >
+              All ({aboutData.length})
+            </button>
+            {uniqueCategories.map((category) => {
+              const count = aboutData.filter(i => i.category === category).length;
+              return (
+                <button
+                  key={category}
+                  className={`filter-tab ${selectedCategory === category ? 'active' : ''}`}
+                  onClick={() => setSelectedCategory(category)}
+                >
+                  {category.charAt(0).toUpperCase() + category.slice(1)} ({count})
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="about-list">
-          {loading && <GlobalLoader text="Loading..." />}
-          {error ? (
-            <div className="empty-state">{error}</div>
-          ) : filteredData.length > 0 ? (
-            <>
-              {filteredData.map(item => renderItem(item))}
-            </>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-state-icon"><DescriptionIcon style={{ fontSize: 48 }} /></div>
-              <div className="empty-state-text">No items found</div>
-              {/* <div className="empty-state-subtext">Try changing your filter or add a new item</div> */}
-            </div>
-          )}
-        </div>
+          <div className="about-list">
+            {loading && <GlobalLoader text="Loading..." />}
+            {error ? (
+              <div className="empty-state">{error}</div>
+            ) : filteredData.length > 0 ? (
+              <>
+                {filteredData.map(item => renderItem(item))}
+              </>
+            ) : (
+              <div className="empty-state">
+                <div className="empty-state-icon"><DescriptionIcon style={{ fontSize: 48 }} /></div>
+                <div className="empty-state-text">No items found</div>
+                {/* <div className="empty-state-subtext">Try changing your filter or add a new item</div> */}
+              </div>
+            )}
+          </div>
 
-        <ConfirmDialog
-          isOpen={confirmDialog.isOpen}
-          onClose={closeConfirmDialog}
-          onConfirm={confirmDelete}
-          title="Delete Item"
-          message={`Are you sure you want to delete "${confirmDialog.itemName}"? This action cannot be undone.`}
-          confirmText="Delete"
-          cancelText="Cancel"
-          type="danger"
-        />
-      </div>
+          <ConfirmDialog
+            isOpen={confirmDialog.isOpen}
+            onClose={closeConfirmDialog}
+            onConfirm={confirmDelete}
+            title="Delete Item"
+            message={`Are you sure you want to delete "${confirmDialog.itemName}"? This action cannot be undone.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            type="danger"
+          />
+        </div>
       </DashboardLayout>
     </>
   );
