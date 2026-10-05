@@ -11,74 +11,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DescriptionIcon from '@mui/icons-material/Description';
-
 import GlobalLoader from '../../components/Loader/GlobalLoader';
+import ContentRender from "../../components/ContentRender/ContentRender"
 import './About.css';
-
-
-const getSafeDescriptionHtml = (description = '') => {
-    let html = description;
-    const containsEncodedTags = /&lt;\s*\/?\s*[a-z][^&]*?&gt;/i;
-
-    while (containsEncodedTags.test(html)) {
-        html = new DOMParser().parseFromString(html, 'text/html').body.textContent || '';
-    }
-
-    const parsedDescription = new DOMParser().parseFromString(html, 'text/html');
-    const allowedTags = new Set([
-        'A', 'B', 'BLOCKQUOTE', 'BR', 'CAPTION', 'DD', 'DIV', 'DL', 'DT', 'EM',
-        'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'I', 'IMG', 'LI', 'OL', 'P',
-        'SPAN', 'STRONG', 'SUB', 'SUP', 'TABLE', 'TBODY', 'TD', 'TFOOT', 'TH',
-        'THEAD', 'TR', 'U', 'UL',
-    ]);
-    const disallowedContentTags = new Set(['IFRAME', 'OBJECT', 'SCRIPT', 'STYLE', 'SVG', 'TEMPLATE']);
-
-    parsedDescription.body.querySelectorAll('*').forEach(element => {
-        if (!allowedTags.has(element.tagName)) {
-            if (disallowedContentTags.has(element.tagName)) {
-                element.remove();
-            } else {
-                element.replaceWith(...element.childNodes);
-            }
-            return;
-        }
-
-        [...element.attributes].forEach(attribute => {
-            const name = attribute.name.toLowerCase();
-            const allowedAttributes = {
-                a: ['href', 'target', 'rel'],
-                img: ['src', 'alt', 'width', 'height'],
-                table: ['border', 'cellspacing', 'cellpadding', 'width', 'align'],
-                td: ['colspan', 'rowspan', 'width', 'valign', 'align'],
-                th: ['colspan', 'rowspan', 'width', 'valign', 'align'],
-            }[element.tagName.toLowerCase()] || [];
-
-            if (name === 'class' || allowedAttributes.includes(name)) return;
-
-            element.removeAttribute(attribute.name);
-        });
-
-        if (element.tagName === 'A' && element.hasAttribute('href')) {
-            const href = element.getAttribute('href').trim();
-            if (!/^(https?:|mailto:|tel:|#|\/|\.{1,2}\/)/i.test(href)) {
-                element.removeAttribute('href');
-            }
-            if (element.getAttribute('target') === '_blank') {
-                element.setAttribute('rel', 'noopener noreferrer');
-            }
-        }
-
-        if (element.tagName === 'IMG' && element.hasAttribute('src')) {
-            const src = element.getAttribute('src').trim();
-            if (!/^(https?:|\/|\.{1,2}\/)/i.test(src)) {
-                element.removeAttribute('src');
-            }
-        }
-    });
-
-    return parsedDescription.body.innerHTML;
-};
-
 
 const About = () => {
   const navigate = useNavigate();
@@ -171,7 +106,6 @@ const About = () => {
   function renderItem(item, isChild = false) {
     const isExpanded = expandedItems.includes(item._id);
     return (
-      <>
         <div key={item._id}>
           <div
             className={`about-item ${isChild ? 'child' : 'parent'}`}
@@ -215,11 +149,10 @@ const About = () => {
             </div>
             {isExpanded && (
               <div className="about-item-description">
-                {/* <div dangerouslySetInnerHTML={{ __html: item.description }} /> */}
                 <div
                   className="content-description"
                   dangerouslySetInnerHTML={{
-                    __html: getSafeDescriptionHtml(item.description),
+                    __html: ContentRender(item.description),
                   }}
                 />
               </div>
@@ -232,7 +165,6 @@ const About = () => {
             </div>
           )}
         </div>
-      </>
     );
   }
 
