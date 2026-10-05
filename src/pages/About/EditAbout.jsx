@@ -5,7 +5,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { getAboutById, createAbout, updateAbout } from '../../services/aboutApi';
-import ContentRender from "../../components/ContentRender/ContentRender"
+import ContentRender from "../../components/ContentRender/ContentRender";
 import './EditAbout.css';
 
 const ORDERED_CATEGORIES = ['style', 'biography'];

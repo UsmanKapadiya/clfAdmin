@@ -12,7 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import DescriptionIcon from '@mui/icons-material/Description';
 import GlobalLoader from '../../components/Loader/GlobalLoader';
-import ContentRender from "../../components/ContentRender/ContentRender"
+import ContentRender from "../../components/ContentRender/ContentRender";
 import './About.css';
 
 const About = () => {
