@@ -288,7 +288,7 @@ const Gallery = () => {
               </button>
             )}
           </div>
-          {galleryType === 'photos' && (
+          {/* {galleryType === 'photos' && (
             <div className="year-filter-tabs">
               <button
                 className={`year-tab ${selectedYear === 'all' ? 'active' : ''}`}
@@ -309,7 +309,7 @@ const Gallery = () => {
                 );
               })}
             </div>
-          )}
+          )} */}
         </div>
 
         {loading ? (
@@ -370,9 +370,9 @@ const Gallery = () => {
                       style={{ cursor: 'pointer' }}
                     >
                       <img
-                        src={resolveMediaUrl(gallery.catalogThumbnail)}
-                        alt={gallery.title}
-                        loading="lazy"
+                          src={resolveMediaUrl(gallery.catalogThumbnail)}
+                          alt={gallery.title}
+                          loading="lazy"
                       />
                       <div className="gallery-overlay">
                         <div className="photo-count">
