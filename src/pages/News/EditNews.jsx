@@ -66,7 +66,7 @@ const EditNews = () => {
     return title
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '')
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
   }, []);
@@ -122,8 +122,8 @@ const EditNews = () => {
       }
     }
 
-    if (!/^[a-z0-9-]+$/.test(formData.slug)) {
-      setError('Slug can only contain lowercase letters, numbers, and hyphens');
+    if (!/^[\p{L}\p{N}-]+$/u.test(formData.slug)) {
+      setError('Slug can only contain letters, numbers, and hyphens');
       return false;
     }
 
@@ -255,7 +255,7 @@ const EditNews = () => {
                   readOnly
                   required
                 />
-                <p className="form-help-text">Auto-generated from title (lowercase, hyphens only)</p>
+                <p className="form-help-text">Auto-generated from title (letters, numbers, and hyphens)</p>
               </div>
             </div>
 
