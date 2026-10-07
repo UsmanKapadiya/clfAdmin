@@ -138,7 +138,7 @@ const Gallery = () => {
 
   const handleDelete = useCallback((id, e) => {
     e.stopPropagation();
-    const item = allGalleries.find(item => item.id === id);
+    const item = allGalleries.find(item => (item._id ?? item.id) === id);
     setConfirmDialog({
       isOpen: true,
       itemId: id,
@@ -222,7 +222,6 @@ const Gallery = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  console.log("galleryList", galleryList)
   return (
     <DashboardLayout>
       <div className="gallery-page">
@@ -319,7 +318,7 @@ const Gallery = () => {
             {paginatedGalleries.length > 0 ? (
               paginatedGalleries.map(gallery => (
                 galleryType === 'photos' ? (
-                  <div key={gallery.id} className="gallery-card">
+                  <div key={gallery._id ?? gallery.id} className="gallery-card">
                     <div
                       className="gallery-thumbnail"
                       onClick={() => handleViewGallery(gallery)}
@@ -353,7 +352,7 @@ const Gallery = () => {
                         </button>
                         <button
                           className="btn-icon delete"
-                          onClick={(e) => handleDelete(gallery.id, e)}
+                          onClick={(e) => handleDelete(gallery._id ?? gallery.id, e)}
                           title="Delete"
                           aria-label={`Delete ${gallery.title}`}
                         >
@@ -363,7 +362,7 @@ const Gallery = () => {
                     </div>
                   </div>
                 ) : (
-                  <div key={gallery.id} className="gallery-card video-card">
+                  <div key={gallery._id ?? gallery.id} className="gallery-card video-card">
                     <div
                       className="gallery-thumbnail"
                       onClick={() => setVideoPopup({ open: true, url: gallery.videoUrl })}

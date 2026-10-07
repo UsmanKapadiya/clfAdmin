@@ -34,7 +34,6 @@ const EditGallery = () => {
         .then(res => {
           if (res.success && res.data) {
             const item = res.data?.data;
-            console.log(item)
             setFormData({
               id: item._id,
               title: item.title,
@@ -183,25 +182,14 @@ const EditGallery = () => {
       fd.append('year', formData.year);
       fd.append('subTitle', formData.subTitle);
 
-      // Handle catalogThumbnail: if it's a file, append as file, else as string
-      if (formData.catalogThumbnail && typeof formData.catalogThumbnail === 'object' && formData.catalogThumbnail.file) {
-        fd.append('catalogThumbnail', formData.catalogThumbnail.file);
-      } else if (formData.catalogThumbnail) {
+      // Send the thumbnail once, either as an uploaded file or an existing URL.
+      if (typeof formData.catalogThumbnail === 'string') {
         fd.append('catalogThumbnail', formData.catalogThumbnail);
+      } else if (formData.catalogThumbnail?.file) {
+        fd.append('catalogThumbnail', formData.catalogThumbnail.file);
       }
 
       // Append photos (files and/or URLs)
-      if (formData.catalogThumbnail instanceof File) {
-        fd.append('catalogThumbnail', formData.catalogThumbnail);
-      } else if (
-        formData.catalogThumbnail &&
-        typeof formData.catalogThumbnail === 'object' &&
-        formData.catalogThumbnail.file
-      ) {
-        fd.append('catalogThumbnail', formData.catalogThumbnail.file);
-      } else if (formData.catalogThumbnail) {
-        fd.append('catalogThumbnail', formData.catalogThumbnail);
-      }
       formData.photos.forEach((photo, idx) => {
         if (photo.file) {
           fd.append('photos', photo.file);
@@ -319,7 +307,7 @@ const EditGallery = () => {
                 </label>
                 <div className="thumbnail-upload-section">
                   <input
-                    type="url"
+                    type="text"
                     id="catalogThumbnail"
                     name="catalogThumbnail"
                     className="form-input"
@@ -406,7 +394,7 @@ const EditGallery = () => {
               ) : (
                 <div className="photos-grid">
                   {formData.photos.map((photo, index) => (
-                    <div key={photo.id} className="photo-card">
+                    <div key={index} className="photo-card">
                       <div className="photo-card-header">
                         <span className="photo-number">#{index + 1}</span>
                         <button
