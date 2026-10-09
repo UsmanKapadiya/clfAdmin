@@ -118,10 +118,10 @@ const EditGallery = () => {
     }
   }, [handleAddMultiplePhotos]);
 
-  const handleDeletePhoto = useCallback((photoId) => {
+  const handleDeletePhoto = useCallback((photoIndex) => {
     setFormData(prev => ({
       ...prev,
-      photos: prev.photos.filter(photo => photo.id !== photoId)
+      photos: prev.photos.filter((_, index) => index !== photoIndex)
     }));
   }, []);
 
@@ -394,13 +394,13 @@ const EditGallery = () => {
               ) : (
                 <div className="photos-grid">
                   {formData.photos.map((photo, index) => (
-                    <div key={index} className="photo-card">
+                    <div key={photo.id ?? photo._id ?? index} className="photo-card">
                       <div className="photo-card-header">
                         <span className="photo-number">#{index + 1}</span>
                         <button
                           type="button"
                           className="btn-delete-photo"
-                          onClick={() => handleDeletePhoto(photo.id)}
+                          onClick={() => handleDeletePhoto(index)}
                           title="Delete photo"
                         >
                           <DeleteIcon />
